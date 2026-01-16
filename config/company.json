@@ -1,0 +1,17 @@
+{
+  "store_name": "The 1916 Company",
+  "seller_url": "https://www.the1916company.com",
+  "store_country": "US",
+  "target_countries": ["US"],
+  "seller_privacy_policy": "https://www.the1916company.com/privacy/",
+  "seller_tos": "https://www.the1916company.com/terms-conditions/",
+  "return_policy_url": "https://www.the1916company.com/returns-exchanges/",
+  "return_policy_text": "To be eligible for a return, your item(s) must be unused, in their original packaging, and in the same condition that you received it.",
+  "return_windows": {
+    "new_watch": 14,
+    "rolex_cpo": 14,
+    "jewelry": 14,
+    "handbag": 14,
+    "preowned_watch": 7
+  }
+}

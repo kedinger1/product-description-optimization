@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard{% endblock %}
+{% block page_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div class="stats-grid">
+    <div class="stat-card">
+        <div class="stat-card__value">{{ stats.get('total_products', '--') }}</div>
+        <div class="stat-card__label">Products Transformed</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ stats.get('successful', '--') }}</div>
+        <div class="stat-card__label">Successful</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ stats.get('errors', '--') }}</div>
+        <div class="stat-card__label">Errors</div>
+    </div>
+    <div class="stat-card">
+        <div class="stat-card__value">{{ stats.get('output_format', '--') }}</div>
+        <div class="stat-card__label">Output Format</div>
+    </div>
+</div>
+
+{% if stats %}
+<div class="card">
+    <div class="card__header">
+        <span class="card__title">Last Transformation</span>
+        <span class="badge badge--success">Completed</span>
+    </div>
+    <table>
+        <tr>
+            <th>Input File</th>
+            <td>{{ stats.get('input_file', 'N/A') }}</td>
+        </tr>
+        <tr>
+            <th>Timestamp</th>
+            <td>{{ stats.get('timestamp', 'N/A') }}</td>
+        </tr>
+        <tr>
+            <th>Output File</th>
+            <td>{{ stats.get('output_file', 'N/A') }}</td>
+        </tr>
+        <tr>
+            <th>Product Types</th>
+            <td>
+                {% for type, count in stats.get('product_types', {}).items() %}
+                    <span class="badge badge--success">{{ type }}: {{ count }}</span>
+                {% endfor %}
+            </td>
+        </tr>
+    </table>
+</div>
+{% else %}
+<div class="card">
+    <div class="card__header">
+        <span class="card__title">Getting Started</span>
+    </div>
+    <p style="color: var(--color-text-muted); margin-bottom: var(--space-lg);">
+        No transformations have been run yet. Get started by:
+    </p>
+    <ol style="color: var(--color-text-muted); margin-left: var(--space-lg); line-height: 2;">
+        <li>Configure your <a href="/settings" style="color: var(--color-highlight);">company settings</a></li>
+        <li>Review and customize <a href="/rules" style="color: var(--color-highlight);">transformation rules</a></li>
+        <li><a href="/preview" style="color: var(--color-highlight);">Preview</a> a sample product transformation</li>
+        <li><a href="/transform" style="color: var(--color-highlight);">Transform</a> your product feed</li>
+    </ol>
+</div>
+{% endif %}
+
+<div class="two-columns">
+    <div class="card">
+        <div class="card__header">
+            <span class="card__title">Quick Actions</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: var(--space-md);">
+            <a href="/transform" class="btn btn--primary">Run Transformation</a>
+            <a href="/rules" class="btn btn--secondary">Edit Rules</a>
+            <a href="/preview" class="btn btn--secondary">Test Product</a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <span class="card__title">Output Formats</span>
+        </div>
+        <ul style="color: var(--color-text-muted); line-height: 2;">
+            <li><strong style="color: var(--color-text);">OpenAI Commerce</strong> - Product catalog for ChatGPT shopping</li>
+            <li><strong style="color: var(--color-text);">Gemini</strong> - Coming soon</li>
+            <li><strong style="color: var(--color-text);">Perplexity</strong> - Coming soon</li>
+        </ul>
+    </div>
+</div>
+{% endblock %}

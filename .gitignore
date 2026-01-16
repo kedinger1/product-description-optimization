@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+venv/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+
+# Output files (regenerated)
+output/*.jsonl
+output/*.jsonl.gz
+
+# Uploads (user data)
+uploads/
+
+# OS
+.DS_Store
+Thumbs.db

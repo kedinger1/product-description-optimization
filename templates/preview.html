@@ -1,0 +1,286 @@
+{% extends "base.html" %}
+
+{% block title %}Preview & Test{% endblock %}
+{% block page_title %}Preview & Test{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn--primary" onclick="runPreview()">Transform</button>
+{% endblock %}
+
+{% block content %}
+<div id="alertContainer"></div>
+
+<div class="preview-panel">
+    <div class="preview-panel__input">
+        <div class="preview-panel__title">Input Product Data</div>
+        <p style="color: var(--color-text-muted); font-size: 0.875rem; margin-bottom: var(--space-md);">
+            Enter product data as JSON or fill in the form fields below
+        </p>
+        <div class="form-group">
+            <label>
+                <input type="radio" name="inputMode" value="form" checked onchange="toggleInputMode()"> Form
+            </label>
+            <label style="margin-left: var(--space-lg);">
+                <input type="radio" name="inputMode" value="json" onchange="toggleInputMode()"> JSON
+            </label>
+        </div>
+
+        <div id="formInput">
+            <div class="form-group">
+                <label>Product ID</label>
+                <input type="text" id="input_id" placeholder="SKU-12345">
+            </div>
+            <div class="form-group">
+                <label>Title</label>
+                <input type="text" id="input_title" placeholder="Rolex Submariner Date 41mm">
+            </div>
+            <div class="form-group">
+                <label>Brand</label>
+                <input type="text" id="input_brand" placeholder="Rolex">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <input type="text" id="input_category" placeholder="Watches > Luxury Watches">
+            </div>
+            <div class="form-group">
+                <label>Price</label>
+                <input type="text" id="input_price" placeholder="15000.00 USD">
+            </div>
+            <div class="form-group">
+                <label>Link</label>
+                <input type="url" id="input_link" placeholder="https://example.com/product/123">
+            </div>
+            <div class="form-group">
+                <label>Image Link</label>
+                <input type="url" id="input_image_link" placeholder="https://example.com/images/123.jpg">
+            </div>
+            <div class="form-group">
+                <label>Description</label>
+                <textarea id="input_description" rows="3" placeholder="Product description..."></textarea>
+            </div>
+            <div class="form-group">
+                <label>Availability Status</label>
+                <select id="input_availability">
+                    <option value="in_stock">In Stock</option>
+                    <option value="out_of_stock">Out of Stock</option>
+                    <option value="preorder">Pre-order</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>
+                    Specifications (JSON)
+                    <small style="font-weight: normal; display: block;">{"isPreOwned": "true", "caseMaterial": "steel"}</small>
+                </label>
+                <textarea id="input_specs" rows="2" placeholder='{"isPreOwned": "false"}'></textarea>
+            </div>
+        </div>
+
+        <div id="jsonInput" style="display: none;">
+            <textarea id="jsonInputField" class="json-editor" style="width: 100%; min-height: 350px;" placeholder='{
+  "id": "SKU-12345",
+  "title": "Rolex Submariner Date 41mm",
+  "brand": "Rolex",
+  "category": "Watches > Luxury Watches",
+  "price": "15000.00 USD",
+  "link": "https://example.com/product/123",
+  "image_link": "https://example.com/images/123.jpg",
+  "description": "Product description...",
+  "availability_status": "in_stock",
+  "specifications": "{\"isPreOwned\": \"false\"}"
+}'></textarea>
+        </div>
+    </div>
+
+    <div class="preview-panel__output">
+        <div class="preview-panel__title">Transformed Output (OpenAI Format)</div>
+        <div id="outputContainer">
+            <p style="color: var(--color-text-muted); text-align: center; padding: var(--space-xl);">
+                Enter product data and click "Transform" to see the output
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: var(--space-lg);">
+    <div class="card__header">
+        <span class="card__title">Sample Products</span>
+    </div>
+    <p style="color: var(--color-text-muted); margin-bottom: var(--space-md);">
+        Click to load a sample product for testing:
+    </p>
+    <div style="display: flex; gap: var(--space-sm); flex-wrap: wrap;">
+        <button class="btn btn--secondary" onclick="loadSample('new_watch')">New Rolex</button>
+        <button class="btn btn--secondary" onclick="loadSample('rolex_cpo')">Rolex CPO</button>
+        <button class="btn btn--secondary" onclick="loadSample('preowned')">Pre-Owned Watch</button>
+        <button class="btn btn--secondary" onclick="loadSample('jewelry')">Jewelry</button>
+        <button class="btn btn--secondary" onclick="loadSample('handbag')">Handbag</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+const sampleProducts = {
+    new_watch: {
+        id: "ns-w-126610ln",
+        title: "Submariner Date 41mm Black Dial Steel",
+        brand: "Rolex",
+        category: "Watches > Rolex > Submariner",
+        price: "10100.00 USD",
+        link: "https://www.the1916company.com/rolex-submariner-126610ln",
+        image_link: "https://www.the1916company.com/images/126610ln.jpg",
+        description: "The Oyster Perpetual Submariner Date in Oystersteel with a Cerachrom bezel insert in black ceramic and a black dial.",
+        availability_status: "in_stock",
+        specifications: '{"isPreOwned": "false", "caseMaterial": "Oystersteel", "dialColor": "Black"}'
+    },
+    rolex_cpo: {
+        id: "cpo-116610ln",
+        title: "Submariner Date 40mm Steel",
+        brand: "Rolex",
+        category: "Watches > Rolex CPO",
+        price: "11500.00 USD",
+        link: "https://www.the1916company.com/rolex-cpo-116610ln",
+        image_link: "https://www.the1916company.com/images/cpo-116610ln.jpg",
+        description: "Rolex Certified Pre-Owned Submariner Date with 2-year international guarantee.",
+        availability_status: "in_stock",
+        specifications: '{"isPreOwned": "true", "caseMaterial": "Oystersteel", "dialColor": "Black", "cpoWarranty": "2 years"}'
+    },
+    preowned: {
+        id: "po-omega-seamaster",
+        title: "Seamaster Planet Ocean 600M",
+        brand: "Omega",
+        category: "Watches > Pre-Owned > Omega",
+        price: "4500.00 USD",
+        link: "https://www.the1916company.com/omega-seamaster-po",
+        image_link: "https://www.the1916company.com/images/omega-po.jpg",
+        description: "Pre-owned Omega Seamaster Planet Ocean in excellent condition.",
+        availability_status: "in_stock",
+        specifications: '{"isPreOwned": "true", "caseMaterial": "Steel", "dialColor": "Blue"}'
+    },
+    jewelry: {
+        id: "ns-j-diamond-pendant",
+        title: "Diamond Solitaire Pendant 1.0ct",
+        brand: "The 1916 Company",
+        category: "Jewelry > Necklaces > Diamond",
+        price: "3500.00 USD",
+        link: "https://www.the1916company.com/diamond-pendant",
+        image_link: "https://www.the1916company.com/images/diamond-pendant.jpg",
+        description: "Stunning 1.0 carat diamond solitaire pendant in 18k white gold.",
+        availability_status: "in_stock",
+        specifications: '{"isPreOwned": "false", "material": "18k White Gold", "stone": "Diamond", "carat": "1.0"}'
+    },
+    handbag: {
+        id: "ns-hb-birkin-25",
+        title: "Hermes Birkin 25 Togo Leather",
+        brand: "Hermes",
+        category: "Handbags > Hermes > Birkin",
+        price: "18000.00 USD",
+        link: "https://www.the1916company.com/hermes-birkin-25",
+        image_link: "https://www.the1916company.com/images/birkin-25.jpg",
+        description: "Hermes Birkin 25 in classic Togo leather with gold hardware.",
+        availability_status: "in_stock",
+        specifications: '{"isPreOwned": "true", "material": "Togo Leather", "color": "Etoupe", "hardware": "Gold"}'
+    }
+};
+
+function toggleInputMode() {
+    const mode = document.querySelector('input[name="inputMode"]:checked').value;
+    document.getElementById('formInput').style.display = mode === 'form' ? 'block' : 'none';
+    document.getElementById('jsonInput').style.display = mode === 'json' ? 'block' : 'none';
+}
+
+function loadSample(type) {
+    const sample = sampleProducts[type];
+    if (!sample) return;
+
+    // Fill form
+    document.getElementById('input_id').value = sample.id;
+    document.getElementById('input_title').value = sample.title;
+    document.getElementById('input_brand').value = sample.brand;
+    document.getElementById('input_category').value = sample.category;
+    document.getElementById('input_price').value = sample.price;
+    document.getElementById('input_link').value = sample.link;
+    document.getElementById('input_image_link').value = sample.image_link;
+    document.getElementById('input_description').value = sample.description;
+    document.getElementById('input_availability').value = sample.availability_status;
+    document.getElementById('input_specs').value = sample.specifications;
+
+    // Fill JSON
+    document.getElementById('jsonInputField').value = JSON.stringify(sample, null, 2);
+
+    showAlert(`Loaded sample: ${type.replace('_', ' ')}`, 'success');
+}
+
+function getInputData() {
+    const mode = document.querySelector('input[name="inputMode"]:checked').value;
+
+    if (mode === 'json') {
+        try {
+            return JSON.parse(document.getElementById('jsonInputField').value);
+        } catch (e) {
+            throw new Error('Invalid JSON input');
+        }
+    }
+
+    return {
+        id: document.getElementById('input_id').value,
+        title: document.getElementById('input_title').value,
+        brand: document.getElementById('input_brand').value,
+        category: document.getElementById('input_category').value,
+        price: document.getElementById('input_price').value,
+        link: document.getElementById('input_link').value,
+        image_link: document.getElementById('input_image_link').value,
+        description: document.getElementById('input_description').value,
+        availability_status: document.getElementById('input_availability').value,
+        specifications: document.getElementById('input_specs').value
+    };
+}
+
+async function runPreview() {
+    let inputData;
+    try {
+        inputData = getInputData();
+    } catch (e) {
+        showAlert(e.message, 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/preview', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(inputData)
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            displayOutput(result.output);
+        } else {
+            showAlert('Error: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Error: ' + error.message, 'error');
+    }
+}
+
+function displayOutput(output) {
+    const container = document.getElementById('outputContainer');
+
+    // Format the output nicely
+    const html = `
+        <div style="margin-bottom: var(--space-md);">
+            <span class="badge badge--success">Detected Type: ${output.product_type || 'unknown'}</span>
+        </div>
+        <pre style="margin: 0; overflow: auto;"><code>${JSON.stringify(output, null, 2)}</code></pre>
+    `;
+
+    container.innerHTML = html;
+}
+
+function showAlert(message, type) {
+    const container = document.getElementById('alertContainer');
+    container.innerHTML = `<div class="alert alert--${type}">${message}</div>`;
+    setTimeout(() => container.innerHTML = '', 5000);
+}
+</script>
+{% endblock %}

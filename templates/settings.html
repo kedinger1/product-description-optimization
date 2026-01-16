@@ -1,0 +1,199 @@
+{% extends "base.html" %}
+
+{% block title %}Company Settings{% endblock %}
+{% block page_title %}Company Settings{% endblock %}
+
+{% block header_actions %}
+<button class="btn btn--primary" onclick="saveSettings()">Save Settings</button>
+{% endblock %}
+
+{% block content %}
+<div id="alertContainer"></div>
+
+<div class="two-columns">
+    <div class="card">
+        <div class="card__header">
+            <span class="card__title">Store Information</span>
+        </div>
+        <div class="form-group">
+            <label>Store Name</label>
+            <input type="text" id="store_name" placeholder="Your Store Name">
+        </div>
+        <div class="form-group">
+            <label>Seller URL</label>
+            <input type="url" id="seller_url" placeholder="https://www.example.com">
+        </div>
+        <div class="form-group">
+            <label>Store Country</label>
+            <input type="text" id="store_country" placeholder="US">
+        </div>
+        <div class="form-group">
+            <label>Target Countries</label>
+            <input type="text" id="target_countries" placeholder="US, CA, UK">
+            <small>Comma-separated list of country codes</small>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <span class="card__title">Legal & Policies</span>
+        </div>
+        <div class="form-group">
+            <label>Privacy Policy URL</label>
+            <input type="url" id="seller_privacy_policy" placeholder="https://www.example.com/privacy">
+        </div>
+        <div class="form-group">
+            <label>Terms of Service URL</label>
+            <input type="url" id="seller_tos" placeholder="https://www.example.com/terms">
+        </div>
+        <div class="form-group">
+            <label>Return Policy URL</label>
+            <input type="url" id="return_policy_url" placeholder="https://www.example.com/returns">
+        </div>
+        <div class="form-group">
+            <label>Return Policy Text</label>
+            <textarea id="return_policy_text" rows="3" placeholder="Enter your return policy summary..."></textarea>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card__header">
+        <span class="card__title">Return Windows by Product Type</span>
+    </div>
+    <p style="color: var(--color-text-muted); margin-bottom: var(--space-lg);">
+        Define return window (in days) for each product type. These will be applied automatically based on product type detection rules.
+    </p>
+    <div class="two-columns">
+        <div class="form-group">
+            <label>New Watch</label>
+            <input type="number" id="return_new_watch" placeholder="14">
+            <small>Days for new watch returns</small>
+        </div>
+        <div class="form-group">
+            <label>Rolex CPO</label>
+            <input type="number" id="return_rolex_cpo" placeholder="14">
+            <small>Days for Rolex Certified Pre-Owned</small>
+        </div>
+        <div class="form-group">
+            <label>Pre-Owned Watch (Non-Rolex)</label>
+            <input type="number" id="return_preowned_watch" placeholder="7">
+            <small>Days for non-Rolex pre-owned watches</small>
+        </div>
+        <div class="form-group">
+            <label>Jewelry</label>
+            <input type="number" id="return_jewelry" placeholder="14">
+            <small>Days for jewelry returns</small>
+        </div>
+        <div class="form-group">
+            <label>Handbag</label>
+            <input type="number" id="return_handbag" placeholder="14">
+            <small>Days for handbag returns</small>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card__header">
+        <span class="card__title">Current Configuration</span>
+        <span class="badge badge--success">JSON</span>
+    </div>
+    <pre id="configPreview" style="margin: 0;"><code></code></pre>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentSettings = {};
+
+document.addEventListener('DOMContentLoaded', async () => {
+    const response = await fetch('/api/settings');
+    currentSettings = await response.json();
+    populateForm(currentSettings);
+});
+
+function populateForm(settings) {
+    document.getElementById('store_name').value = settings.store_name || '';
+    document.getElementById('seller_url').value = settings.seller_url || '';
+    document.getElementById('store_country').value = settings.store_country || '';
+    document.getElementById('target_countries').value = (settings.target_countries || []).join(', ');
+    document.getElementById('seller_privacy_policy').value = settings.seller_privacy_policy || '';
+    document.getElementById('seller_tos').value = settings.seller_tos || '';
+    document.getElementById('return_policy_url').value = settings.return_policy_url || '';
+    document.getElementById('return_policy_text').value = settings.return_policy_text || '';
+
+    // Return windows
+    const windows = settings.return_windows || {};
+    document.getElementById('return_new_watch').value = windows.new_watch || '';
+    document.getElementById('return_rolex_cpo').value = windows.rolex_cpo || '';
+    document.getElementById('return_preowned_watch').value = windows.preowned_watch || '';
+    document.getElementById('return_jewelry').value = windows.jewelry || '';
+    document.getElementById('return_handbag').value = windows.handbag || '';
+
+    updatePreview(settings);
+}
+
+function collectFormData() {
+    const targetCountries = document.getElementById('target_countries').value
+        .split(',')
+        .map(c => c.trim())
+        .filter(c => c);
+
+    return {
+        store_name: document.getElementById('store_name').value,
+        seller_url: document.getElementById('seller_url').value,
+        store_country: document.getElementById('store_country').value,
+        target_countries: targetCountries,
+        seller_privacy_policy: document.getElementById('seller_privacy_policy').value,
+        seller_tos: document.getElementById('seller_tos').value,
+        return_policy_url: document.getElementById('return_policy_url').value,
+        return_policy_text: document.getElementById('return_policy_text').value,
+        return_windows: {
+            new_watch: parseInt(document.getElementById('return_new_watch').value) || 14,
+            rolex_cpo: parseInt(document.getElementById('return_rolex_cpo').value) || 14,
+            preowned_watch: parseInt(document.getElementById('return_preowned_watch').value) || 7,
+            jewelry: parseInt(document.getElementById('return_jewelry').value) || 14,
+            handbag: parseInt(document.getElementById('return_handbag').value) || 14
+        }
+    };
+}
+
+function updatePreview(settings) {
+    document.querySelector('#configPreview code').textContent = JSON.stringify(settings, null, 2);
+}
+
+async function saveSettings() {
+    const settings = collectFormData();
+
+    try {
+        const response = await fetch('/api/settings', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(settings)
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            showAlert('Settings saved successfully!', 'success');
+            currentSettings = settings;
+            updatePreview(settings);
+        } else {
+            showAlert('Error saving settings: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Error saving settings: ' + error.message, 'error');
+    }
+}
+
+function showAlert(message, type) {
+    const container = document.getElementById('alertContainer');
+    container.innerHTML = `<div class="alert alert--${type}">${message}</div>`;
+    setTimeout(() => container.innerHTML = '', 5000);
+}
+
+// Update preview on any input change
+document.querySelectorAll('input, textarea').forEach(el => {
+    el.addEventListener('input', () => updatePreview(collectFormData()));
+});
+</script>
+{% endblock %}

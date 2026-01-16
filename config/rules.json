@@ -1,0 +1,51 @@
+{
+  "title": {
+    "template": "{brand} {title}",
+    "max_length": 150,
+    "transform": "none"
+  },
+  "description": {
+    "source": "long_description",
+    "fallback": "short_description",
+    "max_length": 5000,
+    "strip_html": true
+  },
+  "product_type_detection": {
+    "jewelry": {
+      "conditions": [
+        {"field": "category", "contains": "jewelry"},
+        {"field": "id", "starts_with": "ns-j-"}
+      ]
+    },
+    "handbag": {
+      "conditions": [
+        {"field": "category", "contains": "handbag"},
+        {"field": "category", "contains": "bag"}
+      ]
+    },
+    "rolex_cpo": {
+      "conditions": [
+        {"field": "brand", "equals": "rolex"},
+        {"field": "isPreOwned", "equals": "true"}
+      ]
+    },
+    "preowned_watch": {
+      "conditions": [
+        {"field": "isPreOwned", "equals": "true"}
+      ]
+    },
+    "new_watch": {
+      "default": true
+    }
+  },
+  "field_mappings": {
+    "item_id": "id",
+    "title": "title",
+    "brand": "brand",
+    "url": "link",
+    "image_url": "image_link",
+    "price": "price",
+    "availability": "availability_status",
+    "group_id": "item_group_id"
+  }
+}

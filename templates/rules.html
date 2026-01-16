@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+
+{% block title %}Transformation Rules{% endblock %}
+{% block page_title %}Transformation Rules{% endblock %}
+
+{% block header_actions %}
+<div style="display: flex; gap: var(--space-sm);">
+    <button class="btn btn--secondary" onclick="resetRules()">Reset to Default</button>
+    <button class="btn btn--primary" onclick="saveRules()">Save Changes</button>
+</div>
+{% endblock %}
+
+{% block content %}
+<div id="alertContainer"></div>
+
+<div class="rules-editor">
+    <div class="rules-list">
+        <div class="rules-list__header">Rule Categories</div>
+        <ul class="rules-list__items">
+            <li class="rules-list__item active" data-rule="title" onclick="selectRule('title')">Title Transformation</li>
+            <li class="rules-list__item" data-rule="description" onclick="selectRule('description')">Description</li>
+            <li class="rules-list__item" data-rule="product_type_detection" onclick="selectRule('product_type_detection')">Product Type Detection</li>
+            <li class="rules-list__item" data-rule="field_mappings" onclick="selectRule('field_mappings')">Field Mappings</li>
+        </ul>
+    </div>
+
+    <div class="rules-detail">
+        <div id="ruleEditor">
+            <!-- Title Rules -->
+            <div class="rule-section" data-rule="title">
+                <h3 style="margin-bottom: var(--space-lg);">Title Transformation</h3>
+                <div class="form-group">
+                    <label>Title Template</label>
+                    <input type="text" id="title_template" placeholder="{brand} {title}">
+                    <small>Use field placeholders like {brand}, {title}, {color}, etc.</small>
+                </div>
+                <div class="form-group">
+                    <label>Maximum Length</label>
+                    <input type="number" id="title_max_length" placeholder="150">
+                    <small>Titles will be truncated to this length</small>
+                </div>
+                <div class="form-group">
+                    <label>Transform Case</label>
+                    <select id="title_transform">
+                        <option value="none">No change</option>
+                        <option value="title">Title Case</option>
+                        <option value="upper">UPPERCASE</option>
+                        <option value="lower">lowercase</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Description Rules -->
+            <div class="rule-section" data-rule="description" style="display: none;">
+                <h3 style="margin-bottom: var(--space-lg);">Description Settings</h3>
+                <div class="form-group">
+                    <label>Primary Source Field</label>
+                    <input type="text" id="desc_source" placeholder="long_description">
+                </div>
+                <div class="form-group">
+                    <label>Fallback Field</label>
+                    <input type="text" id="desc_fallback" placeholder="short_description">
+                    <small>Used if primary source is empty</small>
+                </div>
+                <div class="form-group">
+                    <label>Maximum Length</label>
+                    <input type="number" id="desc_max_length" placeholder="5000">
+                </div>
+                <div class="form-group">
+                    <label>
+                        <input type="checkbox" id="desc_strip_html" checked>
+                        Strip HTML tags
+                    </label>
+                </div>
+            </div>
+
+            <!-- Product Type Detection -->
+            <div class="rule-section" data-rule="product_type_detection" style="display: none;">
+                <h3 style="margin-bottom: var(--space-lg);">Product Type Detection</h3>
+                <p style="color: var(--color-text-muted); margin-bottom: var(--space-lg);">
+                    Define conditions to automatically detect product types. This affects return policies and other business rules.
+                </p>
+                <div id="productTypeRules"></div>
+                <button class="btn btn--secondary" onclick="addProductType()">+ Add Product Type</button>
+            </div>
+
+            <!-- Field Mappings -->
+            <div class="rule-section" data-rule="field_mappings" style="display: none;">
+                <h3 style="margin-bottom: var(--space-lg);">Field Mappings</h3>
+                <p style="color: var(--color-text-muted); margin-bottom: var(--space-lg);">
+                    Map your feed fields to the output format fields.
+                </p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Output Field</th>
+                            <th>Source Field</th>
+                        </tr>
+                    </thead>
+                    <tbody id="fieldMappingsTable">
+                        <!-- Populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card" style="margin-top: var(--space-lg);">
+    <div class="card__header">
+        <span class="card__title">Raw JSON View</span>
+        <button class="btn btn--secondary" onclick="toggleJsonView()">Toggle View</button>
+    </div>
+    <div id="jsonView" style="display: none;">
+        <textarea id="jsonEditor" class="json-editor" style="width: 100%; min-height: 400px; font-family: monospace;"></textarea>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let currentRules = {};
+
+// Load rules on page load
+document.addEventListener('DOMContentLoaded', async () => {
+    const response = await fetch('/api/rules');
+    currentRules = await response.json();
+    populateForm(currentRules);
+});
+
+function selectRule(rule) {
+    // Update active state
+    document.querySelectorAll('.rules-list__item').forEach(item => {
+        item.classList.toggle('active', item.dataset.rule === rule);
+    });
+    // Show/hide sections
+    document.querySelectorAll('.rule-section').forEach(section => {
+        section.style.display = section.dataset.rule === rule ? 'block' : 'none';
+    });
+}
+
+function populateForm(rules) {
+    // Title
+    if (rules.title) {
+        document.getElementById('title_template').value = rules.title.template || '';
+        document.getElementById('title_max_length').value = rules.title.max_length || '';
+        document.getElementById('title_transform').value = rules.title.transform || 'none';
+    }
+
+    // Description
+    if (rules.description) {
+        document.getElementById('desc_source').value = rules.description.source || '';
+        document.getElementById('desc_fallback').value = rules.description.fallback || '';
+        document.getElementById('desc_max_length').value = rules.description.max_length || '';
+        document.getElementById('desc_strip_html').checked = rules.description.strip_html !== false;
+    }
+
+    // Product Types
+    if (rules.product_type_detection) {
+        renderProductTypes(rules.product_type_detection);
+    }
+
+    // Field Mappings
+    if (rules.field_mappings) {
+        renderFieldMappings(rules.field_mappings);
+    }
+
+    // JSON view
+    document.getElementById('jsonEditor').value = JSON.stringify(rules, null, 2);
+}
+
+function renderProductTypes(types) {
+    const container = document.getElementById('productTypeRules');
+    container.innerHTML = '';
+
+    for (const [typeName, config] of Object.entries(types)) {
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.style.marginBottom = 'var(--space-md)';
+        div.innerHTML = `
+            <div class="card__header">
+                <span class="card__title">${typeName}</span>
+                <button class="btn btn--danger" onclick="removeProductType('${typeName}')" style="padding: var(--space-xs) var(--space-sm);">Remove</button>
+            </div>
+            <div style="font-size: 0.875rem; color: var(--color-text-muted);">
+                ${config.default ? '<em>Default type (no conditions)</em>' : ''}
+                ${config.conditions ? config.conditions.map(c =>
+                    `<code>${c.field}</code> ${Object.keys(c).filter(k => k !== 'field').map(k => `${k}: "${c[k]}"`).join(', ')}`
+                ).join('<br>') : ''}
+            </div>
+        `;
+        container.appendChild(div);
+    }
+}
+
+function renderFieldMappings(mappings) {
+    const tbody = document.getElementById('fieldMappingsTable');
+    tbody.innerHTML = '';
+
+    for (const [output, source] of Object.entries(mappings)) {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+            <td><code>${output}</code></td>
+            <td><input type="text" value="${source}" data-output="${output}" class="field-mapping-input" style="width: 100%;"></td>
+        `;
+        tbody.appendChild(tr);
+    }
+}
+
+function collectFormData() {
+    const rules = {
+        title: {
+            template: document.getElementById('title_template').value,
+            max_length: parseInt(document.getElementById('title_max_length').value) || 150,
+            transform: document.getElementById('title_transform').value
+        },
+        description: {
+            source: document.getElementById('desc_source').value,
+            fallback: document.getElementById('desc_fallback').value,
+            max_length: parseInt(document.getElementById('desc_max_length').value) || 5000,
+            strip_html: document.getElementById('desc_strip_html').checked
+        },
+        product_type_detection: currentRules.product_type_detection || {},
+        field_mappings: {}
+    };
+
+    // Collect field mappings
+    document.querySelectorAll('.field-mapping-input').forEach(input => {
+        rules.field_mappings[input.dataset.output] = input.value;
+    });
+
+    return rules;
+}
+
+async function saveRules() {
+    const rules = collectFormData();
+
+    try {
+        const response = await fetch('/api/rules', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(rules)
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            showAlert('Rules saved successfully!', 'success');
+            currentRules = rules;
+            document.getElementById('jsonEditor').value = JSON.stringify(rules, null, 2);
+        } else {
+            showAlert('Error saving rules: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Error saving rules: ' + error.message, 'error');
+    }
+}
+
+async function resetRules() {
+    if (!confirm('Reset all rules to default? This cannot be undone.')) return;
+
+    const response = await fetch('/api/rules');
+    currentRules = await response.json();
+    populateForm(currentRules);
+    showAlert('Rules reset to default', 'success');
+}
+
+function toggleJsonView() {
+    const view = document.getElementById('jsonView');
+    view.style.display = view.style.display === 'none' ? 'block' : 'none';
+}
+
+function showAlert(message, type) {
+    const container = document.getElementById('alertContainer');
+    container.innerHTML = `<div class="alert alert--${type}">${message}</div>`;
+    setTimeout(() => container.innerHTML = '', 5000);
+}
+
+function addProductType() {
+    const name = prompt('Enter product type name (e.g., "luxury_watch"):');
+    if (!name) return;
+
+    currentRules.product_type_detection = currentRules.product_type_detection || {};
+    currentRules.product_type_detection[name] = {
+        conditions: [{ field: 'category', contains: name }]
+    };
+    renderProductTypes(currentRules.product_type_detection);
+}
+
+function removeProductType(name) {
+    if (!confirm(`Remove product type "${name}"?`)) return;
+    delete currentRules.product_type_detection[name];
+    renderProductTypes(currentRules.product_type_detection);
+}
+</script>
+{% endblock %}

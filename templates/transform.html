@@ -1,0 +1,324 @@
+{% extends "base.html" %}
+
+{% block title %}Transform Feed{% endblock %}
+{% block page_title %}Transform Feed{% endblock %}
+
+{% block content %}
+<div id="alertContainer"></div>
+
+<div class="two-columns">
+    <div class="card">
+        <div class="card__header">
+            <span class="card__title">Upload Feed</span>
+        </div>
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <input type="file" id="fileInput" accept=".csv" onchange="uploadFile(this)">
+            <div class="upload-area__icon">+</div>
+            <div class="upload-area__text">
+                Click to upload a CSV file<br>
+                <small>or drag and drop</small>
+            </div>
+        </div>
+        <div id="uploadProgress" style="display: none; margin-top: var(--space-md);">
+            <div class="progress">
+                <div class="progress__bar" style="width: 0%"></div>
+            </div>
+            <p style="color: var(--color-text-muted); font-size: 0.875rem; margin-top: var(--space-sm);">
+                Uploading...
+            </p>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card__header">
+            <span class="card__title">Transform Options</span>
+        </div>
+        <div class="form-group">
+            <label>Output Format</label>
+            <select id="outputFormat">
+                <option value="openai">OpenAI Commerce</option>
+                <option value="gemini" disabled>Gemini (Coming Soon)</option>
+                <option value="perplexity" disabled>Perplexity (Coming Soon)</option>
+            </select>
+        </div>
+        <div class="form-group">
+            <label>
+                <input type="checkbox" id="compressOutput" checked>
+                Compress output (gzip)
+            </label>
+            <small style="display: block; margin-top: var(--space-xs);">Recommended for large feeds</small>
+        </div>
+        <button class="btn btn--primary" style="width: 100%; margin-top: var(--space-md);" onclick="runTransform()" id="transformBtn" disabled>
+            Run Transformation
+        </button>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card__header">
+        <span class="card__title">Available Feeds</span>
+    </div>
+    {% if feeds %}
+    <ul class="file-list">
+        {% for feed in feeds %}
+        <li class="file-list__item">
+            <div>
+                <div class="file-list__name">{{ feed.name }}</div>
+                <div class="file-list__meta">{{ (feed.size / 1024)|round(1) }} KB &bull; {{ feed.modified }}</div>
+            </div>
+            <div class="file-list__actions">
+                <button class="btn btn--secondary" style="padding: var(--space-xs) var(--space-sm);" onclick="previewFeed('{{ feed.name }}')">Preview</button>
+                <button class="btn btn--primary" style="padding: var(--space-xs) var(--space-sm);" onclick="selectFeed('{{ feed.name }}')">Select</button>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p style="color: var(--color-text-muted); text-align: center; padding: var(--space-lg);">
+        No feeds uploaded yet. Upload a CSV file to get started.
+    </p>
+    {% endif %}
+</div>
+
+<div class="card" id="previewCard" style="display: none;">
+    <div class="card__header">
+        <span class="card__title">Feed Preview</span>
+        <span id="previewFileName" class="badge badge--success"></span>
+    </div>
+    <div class="table-container">
+        <table id="previewTable">
+            <thead></thead>
+            <tbody></tbody>
+        </table>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card__header">
+        <span class="card__title">Output Files</span>
+    </div>
+    {% if outputs %}
+    <ul class="file-list">
+        {% for output in outputs %}
+        <li class="file-list__item">
+            <div>
+                <div class="file-list__name">{{ output.name }}</div>
+                <div class="file-list__meta">{{ (output.size / 1024 / 1024)|round(2) }} MB &bull; {{ output.modified }}</div>
+            </div>
+            <div class="file-list__actions">
+                <a href="/api/download/{{ output.name }}" class="btn btn--primary" style="padding: var(--space-xs) var(--space-sm);">Download</a>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+    {% else %}
+    <p style="color: var(--color-text-muted); text-align: center; padding: var(--space-lg);">
+        No output files yet. Run a transformation to generate output.
+    </p>
+    {% endif %}
+</div>
+
+<!-- Transform Progress Modal -->
+<div id="transformModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; display: none; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 500px; width: 90%; margin: 0;">
+        <div class="card__header">
+            <span class="card__title">Transforming Feed</span>
+        </div>
+        <div style="text-align: center; padding: var(--space-lg);">
+            <div class="spinner" style="margin: 0 auto var(--space-lg);"></div>
+            <p id="transformStatus">Processing products...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Results Modal -->
+<div id="resultsModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+    <div class="card" style="max-width: 600px; width: 90%; margin: 0;">
+        <div class="card__header">
+            <span class="card__title">Transformation Complete</span>
+            <button class="btn btn--secondary" onclick="closeResultsModal()" style="padding: var(--space-xs) var(--space-sm);">Close</button>
+        </div>
+        <div id="resultsContent" style="padding: var(--space-md);"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let selectedFeed = null;
+
+function selectFeed(filename) {
+    selectedFeed = filename;
+    document.getElementById('transformBtn').disabled = false;
+    showAlert(`Selected: ${filename}`, 'success');
+}
+
+async function uploadFile(input) {
+    const file = input.files[0];
+    if (!file) return;
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    document.getElementById('uploadProgress').style.display = 'block';
+
+    try {
+        const response = await fetch('/api/upload', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+
+        if (result.status === 'success') {
+            showAlert(`${result.message} (${result.rows} rows)`, 'success');
+            // Reload page to show new file
+            setTimeout(() => location.reload(), 1000);
+        } else {
+            showAlert('Error: ' + result.message, 'error');
+        }
+    } catch (error) {
+        showAlert('Upload error: ' + error.message, 'error');
+    }
+
+    document.getElementById('uploadProgress').style.display = 'none';
+    input.value = '';
+}
+
+async function previewFeed(filename) {
+    try {
+        const response = await fetch(`/api/sample/${filename}`);
+        const result = await response.json();
+
+        if (result.samples && result.samples.length > 0) {
+            displayPreview(filename, result.samples);
+        }
+    } catch (error) {
+        showAlert('Error loading preview: ' + error.message, 'error');
+    }
+}
+
+function displayPreview(filename, samples) {
+    const card = document.getElementById('previewCard');
+    const table = document.getElementById('previewTable');
+
+    document.getElementById('previewFileName').textContent = filename;
+
+    // Build header
+    const headers = Object.keys(samples[0]);
+    table.querySelector('thead').innerHTML = `<tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr>`;
+
+    // Build body
+    table.querySelector('tbody').innerHTML = samples.map(row =>
+        `<tr>${headers.map(h => `<td>${(row[h] || '').substring(0, 50)}${(row[h] || '').length > 50 ? '...' : ''}</td>`).join('')}</tr>`
+    ).join('');
+
+    card.style.display = 'block';
+}
+
+async function runTransform() {
+    if (!selectedFeed) {
+        showAlert('Please select a feed file first', 'warning');
+        return;
+    }
+
+    const modal = document.getElementById('transformModal');
+    modal.style.display = 'flex';
+
+    try {
+        const response = await fetch('/api/transform', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                input_file: selectedFeed,
+                format: document.getElementById('outputFormat').value,
+                compress: document.getElementById('compressOutput').checked
+            })
+        });
+        const result = await response.json();
+
+        modal.style.display = 'none';
+
+        if (result.status === 'success') {
+            showResults(result.stats);
+        } else {
+            showAlert('Transform error: ' + result.message, 'error');
+        }
+    } catch (error) {
+        modal.style.display = 'none';
+        showAlert('Transform error: ' + error.message, 'error');
+    }
+}
+
+function showResults(stats) {
+    const modal = document.getElementById('resultsModal');
+    const content = document.getElementById('resultsContent');
+
+    const productTypes = stats.product_types || {};
+    const typesList = Object.entries(productTypes).map(([type, count]) =>
+        `<li><strong>${type}:</strong> ${count}</li>`
+    ).join('');
+
+    content.innerHTML = `
+        <div class="stats-grid" style="margin-bottom: var(--space-lg);">
+            <div class="stat-card">
+                <div class="stat-card__value">${stats.total_products || 0}</div>
+                <div class="stat-card__label">Total Products</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__value">${stats.successful || 0}</div>
+                <div class="stat-card__label">Successful</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-card__value">${stats.errors || 0}</div>
+                <div class="stat-card__label">Errors</div>
+            </div>
+        </div>
+        <h4 style="margin-bottom: var(--space-sm);">Product Types Detected:</h4>
+        <ul style="margin-left: var(--space-lg); line-height: 1.8;">${typesList}</ul>
+        <p style="color: var(--color-text-muted); margin-top: var(--space-lg);">
+            Output file: <code>${stats.output_file || 'N/A'}</code>
+        </p>
+        <button class="btn btn--primary" style="width: 100%; margin-top: var(--space-lg);" onclick="location.reload()">
+            Done
+        </button>
+    `;
+
+    modal.style.display = 'flex';
+}
+
+function closeResultsModal() {
+    document.getElementById('resultsModal').style.display = 'none';
+    location.reload();
+}
+
+function showAlert(message, type) {
+    const container = document.getElementById('alertContainer');
+    container.innerHTML = `<div class="alert alert--${type}">${message}</div>`;
+    setTimeout(() => container.innerHTML = '', 5000);
+}
+
+// Drag and drop
+const uploadArea = document.querySelector('.upload-area');
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--color-highlight)';
+});
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.borderColor = 'var(--color-border)';
+});
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.borderColor = 'var(--color-border)';
+    const file = e.dataTransfer.files[0];
+    if (file && file.name.endsWith('.csv')) {
+        const input = document.getElementById('fileInput');
+        const dt = new DataTransfer();
+        dt.items.add(file);
+        input.files = dt.files;
+        uploadFile(input);
+    } else {
+        showAlert('Only CSV files are supported', 'error');
+    }
+});
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Feed Optimizer{% endblock %} - Admin</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar__logo">
+            <h1>Feed Optimizer</h1>
+            <span class="sidebar__subtitle">The 1916 Company</span>
+        </div>
+        <ul class="sidebar__nav">
+            <li><a href="/" class="{% if request.endpoint == 'index' %}active{% endif %}">Dashboard</a></li>
+            <li><a href="/rules" class="{% if request.endpoint == 'rules_page' %}active{% endif %}">Transformation Rules</a></li>
+            <li><a href="/settings" class="{% if request.endpoint == 'settings_page' %}active{% endif %}">Company Settings</a></li>
+            <li><a href="/preview" class="{% if request.endpoint == 'preview_page' %}active{% endif %}">Preview & Test</a></li>
+            <li><a href="/transform" class="{% if request.endpoint == 'transform_page' %}active{% endif %}">Transform Feed</a></li>
+        </ul>
+    </nav>
+
+    <main class="content">
+        <header class="content__header">
+            <h2>{% block page_title %}Dashboard{% endblock %}</h2>
+            {% block header_actions %}{% endblock %}
+        </header>
+
+        <div class="content__body">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+
+    <script src="{{ url_for('static', filename='js/admin.js') }}"></script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
