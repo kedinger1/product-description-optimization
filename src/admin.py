@@ -149,14 +149,17 @@ def transform_page():
             'modified': datetime.fromtimestamp(f.stat().st_mtime).isoformat()
         })
 
-    # List output files
+    # List output files (JSONL for OpenAI, TSV/CSV for Gemini)
     outputs = []
-    for f in OUTPUT_DIR.glob('*.jsonl*'):
-        outputs.append({
-            'name': f.name,
-            'size': f.stat().st_size,
-            'modified': datetime.fromtimestamp(f.stat().st_mtime).isoformat()
-        })
+    for pattern in ['*.jsonl*', '*.tsv', '*.csv']:
+        for f in OUTPUT_DIR.glob(pattern):
+            # Avoid duplicates if file matches multiple patterns
+            if not any(o['name'] == f.name for o in outputs):
+                outputs.append({
+                    'name': f.name,
+                    'size': f.stat().st_size,
+                    'modified': datetime.fromtimestamp(f.stat().st_mtime).isoformat()
+                })
 
     return render_template('transform.html', feeds=feeds, outputs=outputs)
 
