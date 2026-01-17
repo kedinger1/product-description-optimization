@@ -1,0 +1,39 @@
+name: Daily SFTP Feed Sync
+
+on:
+  schedule:
+    # Run daily at 6 AM UTC (1 AM Eastern)
+    - cron: '0 6 * * *'
+  workflow_dispatch:
+    # Allow manual trigger from GitHub UI
+
+jobs:
+  sync-feed:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download feed from SFTP
+        run: |
+          # Install sshpass for non-interactive SFTP
+          sudo apt-get update && sudo apt-get install -y sshpass
+
+          # Download file from SFTP
+          sshpass -p "${{ secrets.SFTP_PASSWORD }}" sftp -o StrictHostKeyChecking=no \
+            "${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}" <<EOF
+          cd /incoming/src/feedonomics/catalog
+          get google_products_ns-company_en_US.csv
+          bye
+          EOF
+
+          echo "Downloaded file:"
+          ls -lh google_products_ns-company_en_US.csv
+
+      - name: Upload to Render app
+        run: |
+          # Upload the file to the Render web service
+          curl -X POST \
+            -F "file=@google_products_ns-company_en_US.csv" \
+            "${{ secrets.RENDER_APP_URL }}/api/upload" \
+            --fail --show-error
+
+          echo "Upload complete!"
