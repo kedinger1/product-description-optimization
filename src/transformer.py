@@ -135,56 +135,179 @@ def build_q_and_a(row: Dict[str, Any], specs: Dict[str, Any], product_type: str)
     """
     Generate Q&A content to help LLMs understand and recommend the product.
     This is one of the most valuable fields for LLM reasoning.
+    Generates Q&A for ALL product types to ensure 100% coverage.
     """
     qa_pairs = []
     brand = row.get("brand", "").strip()
+    title = row.get("title", "").strip()
     is_preowned = specs.get("isPreOwned", "false").lower() == "true"
+    availability = row.get("availability_status", "").upper()
 
-    # Condition questions
+    # ==========================================================================
+    # UNIVERSAL Q&A (applies to all products)
+    # ==========================================================================
+
+    # 1. Availability/Stock Status (always include)
+    if availability == "IN_STOCK":
+        qa_pairs.append("Q: Is this item in stock?\nA: Yes, this item is currently in stock and ready to ship.")
+    elif availability == "OUT_OF_STOCK":
+        qa_pairs.append("Q: Is this item in stock?\nA: This item is currently out of stock. Please check back later or contact us for availability updates.")
+    elif availability in ["PRE_ORDER", "PREORDER"]:
+        qa_pairs.append("Q: Is this item in stock?\nA: This item is available for pre-order. It will ship once released.")
+    elif availability == "BACKORDER":
+        qa_pairs.append("Q: Is this item in stock?\nA: This item is on backorder and will ship when available.")
+
+    # 2. Brand Information (if available)
+    if brand:
+        if product_type == "jewelry":
+            qa_pairs.append(f"Q: Who makes this jewelry?\nA: This piece is crafted by {brand}, known for exceptional quality and craftsmanship.")
+        elif product_type == "handbag":
+            qa_pairs.append(f"Q: What brand is this bag?\nA: This is an authentic {brand} bag.")
+        elif brand.lower() == "rolex":
+            qa_pairs.append(f"Q: Is this an authentic Rolex?\nA: Yes, this is an authentic {brand} timepiece sold by The 1916 Company, an authorized retailer.")
+        else:
+            qa_pairs.append(f"Q: What brand is this?\nA: This is a {brand} product, available through The 1916 Company.")
+
+    # 3. Condition (new vs pre-owned)
     if is_preowned:
         if brand.lower() == "rolex":
             qa_pairs.append("Q: Is this watch certified?\nA: Yes, this is a Rolex Certified Pre-Owned watch with a 2-year international guarantee from Rolex.")
         else:
-            qa_pairs.append("Q: What is the condition?\nA: This is a pre-owned watch that has been inspected and authenticated by our expert watchmakers.")
+            qa_pairs.append("Q: What is the condition?\nA: This is a pre-owned item that has been professionally inspected and authenticated by our experts.")
+    else:
+        if product_type in ["new_watch", "jewelry", "handbag"]:
+            qa_pairs.append("Q: Is this brand new?\nA: Yes, this is a brand new item with full manufacturer warranty.")
 
-    # Water resistance
-    water_resistance = specs.get("waterResistance") or specs.get("water_resistance")
-    if water_resistance:
-        qa_pairs.append(f"Q: Is this watch waterproof?\nA: This watch has a water resistance rating of {water_resistance}.")
-
-    # Movement/power reserve
-    movement = specs.get("movementType") or specs.get("movement") or specs.get("caliber")
-    if movement:
-        power_reserve = specs.get("powerReserve") or specs.get("power_reserve")
-        if power_reserve:
-            qa_pairs.append(f"Q: What type of movement does it have?\nA: {movement} with approximately {power_reserve} power reserve.")
+    # 4. Material (extract from specs or use generic)
+    material = specs.get("material") or specs.get("caseMaterial") or specs.get("metal")
+    if material:
+        if product_type == "jewelry":
+            qa_pairs.append(f"Q: What is this jewelry made of?\nA: This piece is crafted from {material}.")
+        elif product_type == "handbag":
+            qa_pairs.append(f"Q: What material is this bag made from?\nA: This bag is made from {material}.")
         else:
-            qa_pairs.append(f"Q: What type of movement does it have?\nA: {movement}.")
+            qa_pairs.append(f"Q: What is this made of?\nA: This item features {material} construction.")
 
-    # Box and papers
-    has_box = specs.get("hasBox", "").lower() == "true" or specs.get("box", "").lower() == "true"
-    has_papers = specs.get("hasPapers", "").lower() == "true" or specs.get("papers", "").lower() == "true"
-    if has_box or has_papers:
-        if has_box and has_papers:
-            qa_pairs.append("Q: Does it come with box and papers?\nA: Yes, includes original box and papers/documentation.")
-        elif has_box:
-            qa_pairs.append("Q: Does it come with the original box?\nA: Yes, includes original box.")
-        elif has_papers:
-            qa_pairs.append("Q: Does it come with papers?\nA: Yes, includes original papers/documentation.")
+    # 5. Return Policy (always include)
+    if product_type == "preowned_watch":
+        qa_pairs.append("Q: What is the return policy?\nA: Pre-owned watches can be returned within 7 days in original condition with all packaging and documentation.")
+    else:
+        qa_pairs.append("Q: What is the return policy?\nA: Items can be returned within 14 days in unused condition with original packaging. Contact us for return authorization.")
 
-    # Warranty
-    warranty = specs.get("warranty") or specs.get("warrantyYears")
-    if warranty:
-        qa_pairs.append(f"Q: Is there a warranty?\nA: Yes, this watch comes with a {warranty} warranty.")
-    elif product_type == "rolex_cpo":
-        qa_pairs.append("Q: Is there a warranty?\nA: Yes, Rolex Certified Pre-Owned watches come with a 2-year international guarantee.")
+    # ==========================================================================
+    # WATCH-SPECIFIC Q&A
+    # ==========================================================================
+    if product_type in ["new_watch", "rolex_cpo", "preowned_watch"]:
+        # Water resistance
+        water_resistance = specs.get("waterResistance") or specs.get("water_resistance")
+        if water_resistance:
+            qa_pairs.append(f"Q: Is this watch waterproof?\nA: This watch has a water resistance rating of {water_resistance}.")
 
-    # Case size
-    case_size = specs.get("caseSize") or specs.get("caseDiameter") or specs.get("diameter")
-    if case_size:
-        qa_pairs.append(f"Q: What size is the watch?\nA: The case diameter is {case_size}.")
+        # Movement/power reserve
+        movement = specs.get("movementType") or specs.get("movement") or specs.get("caliber")
+        if movement:
+            power_reserve = specs.get("powerReserve") or specs.get("power_reserve") or specs.get("field12")
+            if power_reserve:
+                qa_pairs.append(f"Q: What type of movement does it have?\nA: {movement} with approximately {power_reserve} power reserve.")
+            else:
+                qa_pairs.append(f"Q: What type of movement does it have?\nA: {movement}.")
 
-    return "\n\n".join(qa_pairs) if qa_pairs else ""
+        # Box and papers
+        has_box = specs.get("hasBox", "").lower() == "true" or specs.get("box", "").lower() == "true"
+        has_papers = specs.get("hasPapers", "").lower() == "true" or specs.get("papers", "").lower() == "true"
+        if has_box or has_papers:
+            if has_box and has_papers:
+                qa_pairs.append("Q: Does it come with box and papers?\nA: Yes, includes original box and papers/documentation.")
+            elif has_box:
+                qa_pairs.append("Q: Does it come with the original box?\nA: Yes, includes original box.")
+            elif has_papers:
+                qa_pairs.append("Q: Does it come with papers?\nA: Yes, includes original papers/documentation.")
+
+        # Warranty
+        warranty = specs.get("warranty") or specs.get("warrantyYears")
+        if warranty:
+            qa_pairs.append(f"Q: Is there a warranty?\nA: Yes, this watch comes with a {warranty} warranty.")
+        elif product_type == "rolex_cpo":
+            qa_pairs.append("Q: Is there a warranty?\nA: Yes, Rolex Certified Pre-Owned watches come with a 2-year international guarantee.")
+
+        # Case size/dimensions
+        case_size = specs.get("caseSize") or specs.get("caseDiameter") or specs.get("diameter")
+        if case_size:
+            case_thickness = specs.get("caseThickness") or specs.get("thickness")
+            if case_thickness:
+                qa_pairs.append(f"Q: What size is the watch?\nA: The case diameter is {case_size} with a thickness of {case_thickness}.")
+            else:
+                qa_pairs.append(f"Q: What size is the watch?\nA: The case diameter is {case_size}.")
+
+        # Dial color
+        dial_color = specs.get("dialColor") or specs.get("dial_color")
+        if dial_color:
+            qa_pairs.append(f"Q: What color is the dial?\nA: This watch features a {dial_color.lower()} dial.")
+
+        # Bracelet/strap
+        bracelet = specs.get("bandMaterial") or specs.get("braceletMaterial") or specs.get("field13")
+        if bracelet:
+            qa_pairs.append(f"Q: What type of bracelet or strap does it have?\nA: This watch comes with a {bracelet}.")
+
+    # ==========================================================================
+    # JEWELRY-SPECIFIC Q&A
+    # ==========================================================================
+    elif product_type == "jewelry":
+        # Gemstones
+        gemstone = specs.get("gemstone") or specs.get("stone") or specs.get("gem")
+        if gemstone:
+            qa_pairs.append(f"Q: What gemstones are featured?\nA: This piece features {gemstone}.")
+
+        # Metal type/karat
+        metal = specs.get("metalType") or specs.get("goldKarat") or specs.get("metal")
+        if metal and metal != material:
+            qa_pairs.append(f"Q: What type of metal is this?\nA: This jewelry is crafted from {metal}.")
+
+        # Size/dimensions for jewelry
+        size = specs.get("size") or specs.get("ringSize") or specs.get("length")
+        if size:
+            qa_pairs.append(f"Q: What size is this piece?\nA: This item measures {size}.")
+
+        # Care instructions
+        qa_pairs.append("Q: How should I care for this jewelry?\nA: Store in a soft pouch or jewelry box. Avoid contact with perfumes, lotions, and harsh chemicals. Clean gently with a soft cloth.")
+
+    # ==========================================================================
+    # HANDBAG-SPECIFIC Q&A
+    # ==========================================================================
+    elif product_type == "handbag":
+        # Dimensions
+        dimensions = specs.get("dimensions") or specs.get("size")
+        if dimensions:
+            qa_pairs.append(f"Q: What are the dimensions of this bag?\nA: The dimensions are {dimensions}.")
+
+        # Color
+        color = specs.get("color") or specs.get("bagColor")
+        if color:
+            qa_pairs.append(f"Q: What color is this bag?\nA: This bag is available in {color}.")
+
+        # Hardware
+        hardware = specs.get("hardware") or specs.get("hardwareColor")
+        if hardware:
+            qa_pairs.append(f"Q: What type of hardware does it have?\nA: This bag features {hardware} hardware.")
+
+        # Care
+        qa_pairs.append("Q: How should I care for this bag?\nA: Store stuffed with tissue paper in its dust bag. Avoid prolonged exposure to sunlight and keep away from water and oils.")
+
+    # ==========================================================================
+    # FALLBACK - ensure at least 3 Q&A pairs for any product
+    # ==========================================================================
+    if len(qa_pairs) < 3:
+        # Add shipping Q&A
+        qa_pairs.append("Q: How is this item shipped?\nA: Items are carefully packaged and shipped via insured carrier. Signature is required upon delivery.")
+
+        # Add authentication Q&A
+        if brand:
+            qa_pairs.append(f"Q: Is this authentic?\nA: Yes, The 1916 Company guarantees authenticity of all {brand} products. Each item is verified by our experts.")
+
+        # Add contact Q&A
+        qa_pairs.append("Q: Can I get more information about this item?\nA: Yes, please contact The 1916 Company for additional details, photos, or to schedule a viewing.")
+
+    return "\n\n".join(qa_pairs)
 
 
 def build_product_category(row: Dict[str, Any], specs: Dict[str, Any], product_type: str) -> str:
