@@ -241,6 +241,45 @@ def download_file(filename):
     return send_file(filepath, as_attachment=True)
 
 
+@app.route('/api/validate/<filename>')
+def validate_output(filename):
+    """Validate an output file against OpenAI Commerce Feed schema"""
+    from src.validate_feed import load_feed, validate_product, OPENAI_COMMERCE_SCHEMA
+
+    filepath = OUTPUT_DIR / filename
+    if not filepath.exists():
+        return jsonify({'status': 'error', 'message': 'File not found'}), 404
+
+    try:
+        products = load_feed(str(filepath))
+        validation_results = [validate_product(p, i) for i, p in enumerate(products)]
+
+        # Calculate field coverage
+        field_coverage = {}
+        for category, fields in OPENAI_COMMERCE_SCHEMA.items():
+            field_coverage[category] = {}
+            for field in fields:
+                present = sum(1 for p in products if field in p and p[field])
+                field_coverage[category][field] = {
+                    "present": present,
+                    "total": len(products),
+                    "percentage": round(present / len(products) * 100, 1) if products else 0
+                }
+
+        return jsonify({
+            'status': 'success',
+            'total_products': len(products),
+            'valid_products': sum(1 for r in validation_results if not r["errors"]),
+            'products_with_errors': sum(1 for r in validation_results if r["errors"]),
+            'products_with_warnings': sum(1 for r in validation_results if r["warnings"]),
+            'field_coverage': field_coverage,
+            'sample_products': products[:3],
+            'sample_errors': [r for r in validation_results if r["errors"]][:5]
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+
 @app.route('/api/sample/<filename>')
 def get_sample(filename):
     """Get sample rows from a feed file"""
