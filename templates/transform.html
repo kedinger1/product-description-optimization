@@ -221,6 +221,14 @@ async function runTransform() {
         return;
     }
 
+    const btn = document.getElementById('transformBtn');
+    const originalText = btn.innerHTML;
+
+    // Update button to show processing state
+    btn.disabled = true;
+    btn.innerHTML = '<span class="btn-spinner"></span> Processing...';
+    btn.classList.add('btn--processing');
+
     const modal = document.getElementById('transformModal');
     modal.style.display = 'flex';
 
@@ -246,6 +254,11 @@ async function runTransform() {
     } catch (error) {
         modal.style.display = 'none';
         showAlert('Transform error: ' + error.message, 'error');
+    } finally {
+        // Restore button state
+        btn.disabled = false;
+        btn.innerHTML = originalText;
+        btn.classList.remove('btn--processing');
     }
 }
 
