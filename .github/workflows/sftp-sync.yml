@@ -14,14 +14,37 @@ jobs:
     steps:
       - name: Download feed from SFTP
         run: |
-          echo "Downloading from SFTP..."
-          curl -k -u "${{ secrets.SFTP_USERNAME }}:${{ secrets.SFTP_PASSWORD }}" \
-            "sftp://${{ secrets.SFTP_HOST }}/incoming/src/feedonomics/catalog/google_products_ns-company_en_US.csv" \
-            -o google_products_ns-company_en_US.csv \
-            --fail --show-error
+          pip install paramiko
 
-          echo "Downloaded file:"
-          ls -lh google_products_ns-company_en_US.csv
+          python << 'SCRIPT'
+          import paramiko
+          import os
+
+          host = os.environ['SFTP_HOST']
+          username = os.environ['SFTP_USERNAME']
+          password = os.environ['SFTP_PASSWORD']
+
+          print(f"Connecting to {host}...")
+          transport = paramiko.Transport((host, 22))
+          transport.connect(username=username, password=password)
+          sftp = paramiko.SFTPClient.from_transport(transport)
+
+          remote_path = "/incoming/src/feedonomics/catalog/google_products_ns-company_en_US.csv"
+          local_path = "google_products_ns-company_en_US.csv"
+
+          print(f"Downloading {remote_path}...")
+          sftp.get(remote_path, local_path)
+
+          sftp.close()
+          transport.close()
+
+          size = os.path.getsize(local_path)
+          print(f"Downloaded: {size / 1024 / 1024:.2f} MB")
+          SCRIPT
+        env:
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_USERNAME: ${{ secrets.SFTP_USERNAME }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
 
       - name: Upload to Render app
         run: |
