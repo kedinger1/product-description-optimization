@@ -203,17 +203,26 @@ def run_transform():
     print(f"[DEBUG] Looking for file at: {input_path}")
     print(f"[DEBUG] UPLOADS_DIR = {UPLOADS_DIR}")
     print(f"[DEBUG] Files in uploads: {list(UPLOADS_DIR.glob('*')) if UPLOADS_DIR.exists() else 'DIR NOT FOUND'}")
+    print(f"[DEBUG] Output format: {output_format}")
 
     if not input_path.exists():
         return jsonify({'status': 'error', 'message': f'Input file not found at {input_path}'}), 404
 
-    # Generate output filename
+    # Generate output filename based on format
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    output_filename = f'{output_format}_feed_{timestamp}.jsonl'
-    output_path = OUTPUT_DIR / output_filename
 
     try:
-        stats = transform_feed(str(input_path), str(output_path), compress=compress)
+        if output_format == 'gemini':
+            # Google/Gemini format - TSV by default
+            from src.gemini_transformer import transform_feed_to_google
+            output_filename = f'gemini_feed_{timestamp}'
+            output_path = OUTPUT_DIR / output_filename
+            stats = transform_feed_to_google(str(input_path), str(output_path), output_format='tsv')
+        else:
+            # OpenAI format - JSONL with optional gzip
+            output_filename = f'{output_format}_feed_{timestamp}.jsonl'
+            output_path = OUTPUT_DIR / output_filename
+            stats = transform_feed(str(input_path), str(output_path), compress=compress)
 
         # Save stats for dashboard
         stats['timestamp'] = datetime.now().isoformat()
