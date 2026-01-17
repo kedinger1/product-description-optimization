@@ -303,8 +303,8 @@ def transform_row_to_openai(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
     if material:
         product["material"] = material
 
-    # MPN (Manufacturer Part Number) - use reference number for watches
-    mpn = specs.get("referenceNumber") or specs.get("reference") or specs.get("modelNumber")
+    # MPN (Manufacturer Part Number) - use baseRefNum or reference number for watches
+    mpn = specs.get("baseRefNum") or specs.get("referenceNumber") or specs.get("reference") or specs.get("modelNumber") or specs.get("sku")
     if mpn:
         product["mpn"] = str(mpn)[:70]
 
