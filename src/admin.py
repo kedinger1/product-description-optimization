@@ -9,7 +9,7 @@ import csv
 from pathlib import Path
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, send_file
-from transformer import transform_feed, transform_row_to_openai, parse_json_field, COMPANY_CONFIG
+from src.transformer import transform_feed, transform_row_to_openai, parse_json_field, COMPANY_CONFIG
 
 app = Flask(__name__, template_folder='../templates', static_folder='../static')
 
