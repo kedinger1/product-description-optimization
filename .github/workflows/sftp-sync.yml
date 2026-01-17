@@ -14,23 +14,18 @@ jobs:
     steps:
       - name: Download feed from SFTP
         run: |
-          # Install sshpass for non-interactive SFTP
-          sudo apt-get update && sudo apt-get install -y sshpass
-
-          # Download file from SFTP
-          sshpass -p "${{ secrets.SFTP_PASSWORD }}" sftp -o StrictHostKeyChecking=no \
-            "${{ secrets.SFTP_USERNAME }}@${{ secrets.SFTP_HOST }}" <<EOF
-          cd /incoming/src/feedonomics/catalog
-          get google_products_ns-company_en_US.csv
-          bye
-          EOF
+          echo "Downloading from SFTP..."
+          curl -k -u "${{ secrets.SFTP_USERNAME }}:${{ secrets.SFTP_PASSWORD }}" \
+            "sftp://${{ secrets.SFTP_HOST }}/incoming/src/feedonomics/catalog/google_products_ns-company_en_US.csv" \
+            -o google_products_ns-company_en_US.csv \
+            --fail --show-error
 
           echo "Downloaded file:"
           ls -lh google_products_ns-company_en_US.csv
 
       - name: Upload to Render app
         run: |
-          # Upload the file to the Render web service
+          echo "Uploading to Render..."
           curl -X POST \
             -F "file=@google_products_ns-company_en_US.csv" \
             "${{ secrets.RENDER_APP_URL }}/api/upload" \
