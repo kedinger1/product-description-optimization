@@ -200,8 +200,12 @@ def run_transform():
         return jsonify({'status': 'error', 'message': 'No input file specified'}), 400
 
     input_path = UPLOADS_DIR / input_file
+    print(f"[DEBUG] Looking for file at: {input_path}")
+    print(f"[DEBUG] UPLOADS_DIR = {UPLOADS_DIR}")
+    print(f"[DEBUG] Files in uploads: {list(UPLOADS_DIR.glob('*')) if UPLOADS_DIR.exists() else 'DIR NOT FOUND'}")
+
     if not input_path.exists():
-        return jsonify({'status': 'error', 'message': 'Input file not found'}), 404
+        return jsonify({'status': 'error', 'message': f'Input file not found at {input_path}'}), 404
 
     # Generate output filename
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')

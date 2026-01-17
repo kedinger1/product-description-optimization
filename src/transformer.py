@@ -369,6 +369,12 @@ def transform_feed(input_path: str, output_path: str, compress: bool = True) -> 
     Returns:
         Statistics about the transformation
     """
+    import os
+    print(f"[DEBUG] transform_feed called with input_path={input_path}")
+    print(f"[DEBUG] File exists: {os.path.exists(input_path)}")
+    if os.path.exists(input_path):
+        print(f"[DEBUG] File size: {os.path.getsize(input_path)} bytes")
+
     stats = {
         "total_rows": 0,
         "transformed": 0,
@@ -388,6 +394,7 @@ def transform_feed(input_path: str, output_path: str, compress: bool = True) -> 
     try:
         with open(input_path, 'r', encoding='utf-8') as f:
             reader = csv.DictReader(f)
+            print(f"[DEBUG] CSV fieldnames: {reader.fieldnames}")
 
             for row in reader:
                 stats["total_rows"] += 1
