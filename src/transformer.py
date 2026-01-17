@@ -421,7 +421,17 @@ def transform_feed(input_path: str, output_path: str, compress: bool = True) -> 
         out_handle.close()
 
     stats["output_file"] = output_file
-    return stats
+
+    # Map to frontend-expected keys
+    return {
+        "total_products": stats["total_rows"],
+        "successful": stats["transformed"],
+        "skipped": stats["skipped"],
+        "errors": len(stats["errors"]),
+        "error_details": stats["errors"][:10],  # First 10 errors for debugging
+        "product_types": stats["by_product_type"],
+        "output_file": stats["output_file"],
+    }
 
 
 def main():
