@@ -17,6 +17,7 @@ from src.transformer import (
     extract_price,
     get_additional_images,
     detect_product_type,
+    build_q_and_a,
     COMPANY_CONFIG
 )
 
@@ -155,6 +156,84 @@ def transform_row_to_google(row: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         product["custom_label_2"] = "pre-owned"
     else:
         product["custom_label_2"] = "new"
+
+    # =================================================================
+    # UCP (Universal Commerce Protocol) Attributes
+    # For AI-powered checkout via Google AI Mode & Gemini
+    # =================================================================
+
+    # Enable UCP checkout
+    product["native_commerce"] = "TRUE"
+
+    # Map to checkout API - use same product ID
+    product["merchant_item_id"] = row.get("id", "")
+
+    # Consumer notice for luxury items
+    if is_preowned:
+        product["consumer_notice"] = "Pre-owned luxury item. Authenticity guaranteed. All items inspected and certified by expert watchmakers."
+    else:
+        product["consumer_notice"] = "Authorized retailer. Factory warranty included. Authenticity guaranteed."
+
+    # Product highlights for AI discovery (up to 10 bullet points)
+    highlights = []
+    brand = row.get("brand", "")
+    if brand:
+        highlights.append(f"Authentic {brand} product")
+    if is_preowned:
+        highlights.append("Certified pre-owned with warranty")
+    else:
+        highlights.append("Brand new with manufacturer warranty")
+    if material:
+        highlights.append(f"Crafted in {material}")
+    if dial_color:
+        highlights.append(f"{dial_color} dial")
+    if case_size:
+        highlights.append(f"{case_size} case size")
+
+    water_resistance = specs.get("waterResistance") or specs.get("water_resistance")
+    if water_resistance:
+        highlights.append(f"Water resistant to {water_resistance}")
+
+    movement = specs.get("movement") or specs.get("caliber")
+    if movement:
+        highlights.append(f"{movement} movement")
+
+    if product_type in ["jewelry"]:
+        gemstones = specs.get("gemstones") or specs.get("stones")
+        if gemstones:
+            highlights.append(f"Features {gemstones}")
+
+    highlights.append("Free shipping available")
+    highlights.append("Expert customer service")
+
+    # Join highlights as pipe-separated for Google feed
+    if highlights:
+        product["product_highlight"] = "|".join(highlights[:10])
+
+    # Structured product details for AI understanding
+    product_details = []
+    if brand:
+        product_details.append(f"Brand:{brand}")
+    if mpn:
+        product_details.append(f"Reference:{mpn}")
+    if material:
+        product_details.append(f"Material:{material}")
+    if case_size:
+        product_details.append(f"Case Size:{case_size}")
+    if dial_color:
+        product_details.append(f"Dial Color:{dial_color}")
+    if water_resistance:
+        product_details.append(f"Water Resistance:{water_resistance}")
+    if movement:
+        product_details.append(f"Movement:{movement}")
+
+    if product_details:
+        product["product_detail"] = "|".join(product_details)
+
+    # AI discovery content - reuse Q&A builder from OpenAI transformer
+    q_and_a = build_q_and_a(row, specs, product_type)
+    if q_and_a:
+        product["structured_description"] = q_and_a[:5000]
 
     # Ads redirect (optional - for tracking)
     # product["ads_redirect"] = row.get("link", "") + "?utm_source=google&utm_medium=shopping"
